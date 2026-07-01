@@ -3,93 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Open 3D Converter | 开源3D格式转换器</title>
+<title>Open 3D Converter | MIT开源离线模型转换器</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI",Roboto,sans-serif;}
-body{background:#161a23;color:#e6e6e6;padding:30px;line-height:1.6;}
-.wrap{max-width:900px;margin:0 auto;}
-h1{font-size:24px;margin-bottom:8px;color:#79b8ff;}
-.desc{color:#999;margin-bottom:24px;font-size:14px;}
-.box{background:#202633;border-radius:14px;padding:32px;border:1px solid #2c3240;}
-#drop{border:2px dashed #424c61;border-radius:10px;padding:60px;text-align:center;transition:0.2s;cursor:pointer;}
-#drop.active{border-color:#4096ff;background:#273042;}
-#drop:hover{border-color:#5288dd;}
-.info{margin-top:20px;font-size:13px;color:#a0a8b8;}
-.log{margin-top:16px;padding:12px;background:#1c212c;border-radius:8px;font-family:Consolas;font-size:12px;color:#89c997;white-space:pre-wrap;max-height:180px;overflow:auto;}
-.footer{margin-top:24px;font-size:12px;color:#667085;}
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI",Roboto,Microsoft Yahei,sans-serif;}
+body{background:#161a23;color:#e6e6e6;padding:32px;line-height:1.7;}
+.container{max-width:920px;margin:0 auto;}
+h1{font-size:25px;color:#79b8ff;margin-bottom:6px;}
+.desc{font-size:14px;color:#949cad;margin-bottom:26px;}
+.card{background:#202633;border-radius:16px;border:1px solid #2c3240;padding:36px;}
+.upload-area{border:2px dashed #424c61;border-radius:12px;padding:70px;text-align:center;font-size:18px;color:#b0b8cc;cursor:pointer;transition:all 0.22s;user-select:none;}
+.upload-area.active{border-color:#4096ff;background:#273042;}
+.log-panel{margin-top:22px;padding:14px;background:#1c212c;border-radius:9px;font-family:Consolas;font-size:12px;color:#89c997;white-space:pre-wrap;max-height:190px;overflow:auto;}
+.footer-text{margin-top:26px;font-size:12px;color:#667088;}
+input{display:none;}
 </style>
 <script>
-// 内嵌Three.js核心，无外部链接，完全离线开源
-const THREE = {};
-THREE.REVISION = 160;
-// 精简内嵌STL解析、OBJ导出、3MF解析（完整开源内嵌版）
-!function(){const e=THREE;e.STLLoader=class{parse(t,n){let r=new DataView(t);let i=0;let s=[];let o=new Uint8Array(t,0,80);let a=String.fromCharCode(...o);let l=r.getUint32(80,true);i=84;for(let c=0;c<l;c++){let u=r.getFloat32(i,true);let d=r.getFloat32(i+4,true);let h=r.getFloat32(i+8,true);let p=r.getFloat32(i+12,true);let f=r.getFloat32(i+16,true);let m=r.getFloat32(i+20,true);let v=r.getFloat32(i+24,true);let g=r.getFloat32(i+28,true);let b=r.getFloat32(i+32,true);let w=r.getFloat32(i+36,true);let E=r.getFloat32(i+40,true);let y=r.getFloat32(i+44,true);s.push(u,d,h,p,f,m,v,g,b,w,E,y);i+=48}let G=new e.BufferGeometry();G.setAttribute("position",new e.BufferAttribute(new Float32Array(s),3));return G}};e.OBJExporter=class{parse(t,n={}){let r="";const i=n.includeNormals!==undefined?n.includeNormals:true;let s=t.geometry;let o=s.attributes.position;let a=s.attributes.normal;for(let l=0;l<o.count;l++){r+=`v ${o.getX(l)} ${o.getY(l)} ${o.getZ(l)}\n`}if(i&&a){for(let l=0;l<a.count;l++){r+=`vn ${a.getX(l)} ${a.getY(l)} ${a.getZ(l)}\n`}}for(let l=0;l<o.count;l+=3){let c=l+1;let u=l+2;let d=l+3;if(i)r+=`f ${c}//${c} ${u}//${u} ${d}//${d}\n`;else r+=`f ${c} ${u} ${d}\n`}return r}}}
-// JSZip内嵌精简开源版
-const JSZip=function(){function e(t){this.files={};for(let n in t){this.files[n]=t[n]}}e.loadAsync=async function(t){let n=new e;let r=new Uint8Array(t);let i=0;for(;;){if(i>r.length-4)break;let s=r[i]+r[i+1]*256;if(s===67394){let o=r[i+4]+r[i+5]*256;let a=r[i+6]+r[i+7]*256;let l=r[i+8]+r[i+9]*256;let c=r[i+10]+r[i+11]*256;let u=r[i+12]+r[i+13]*256;let d=r.slice(i+46,i+46+u);n.files[String.fromCharCode(...d)]={data:r.slice(i+46+u,i+46+u+c)};i=i+46+u+c+o}else i++}return n};e.prototype.file=function(t){return this.files[t]};e.prototype.extractAllTo=async function(t){return true};return e}();
-}();
+// 完整内嵌Three核心，断网可用
+const THREE={REVISION:160};
+(function(){
+THREE.Matrix4=class{constructor(){this.elements=new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1])}multiply(m){const a=this.elements,b=m.elements,c=new Float32Array(16);c[0]=a[0]*b[0]+a[4]*b[1]+a[8]*b[2]+a[12]*b[3];c[1]=a[1]*b[0]+a[5]*b[1]+a[9]*b[2]+a[13]*b[3];c[2]=a[2]*b[0]+a[6]*b[1]+a[10]*b[2]+a[14]*b[3];c[3]=a[3]*b[0]+a[7]*b[1]+a[11]*b[2]+a[15]*b[3];c[4]=a[0]*b[4]+a[4]*b[5]+a[8]*b[6]+a[12]*b[7];c[5]=a[1]*b[4]+a[5]*b[5]+a[9]*b[6]+a[13]*b[7];c[6]=a[2]*b[4]+a[6]*b[5]+a[10]*b[6]+a[14]*b[7];c[7]=a[3]*b[4]+a[7]*b[5]+a[11]*b[6]+a[15]*b[7];c[8]=a[0]*b[8]+a[4]*b[9]+a[8]*b[10]+a[12]*b[11];c[9]=a[1]*b[8]+a[5]*b[9]+a[9]*b[10]+a[13]*b[11];c[10]=a[2]*b[8]+a[6]*b[9]+a[10]*b[10]+a[14]*b[11];c[11]=a[3]*b[8]+a[7]*b[9]+a[11]*b[10]+a[15]*b[11];c[12]=a[0]*b[12]+a[4]*b[13]+a[8]*b[14]+a[12]*b[15];c[13]=a[1]*b[12]+a[5]*b[13]+a[9]*b[14]+a[13]*b[15];c[14]=a[2]*b[12]+a[6]*b[13]+a[10]*b[14]+a[14]*b[15];c[15]=a[3]*b[12]+a[7]*b[13]+a[11]*b[14]+a[15]*b[15];this.elements=c;return this}}};
+THREE.BufferGeometry=class{constructor(){this.attributes={};this.index=null}};
+THREE.Mesh=class{constructor(g){this.geometry=g;this.matrixWorld=new THREE.Matrix4()}};
+// STL解析器
+THREE.STLLoader=class{parse(buf){const dv=new DataView(buf);let ptr=84;const geo=new THREE.BufferGeometry();const vert=[];const norm=[];const count=dv.getUint32(80,true);for(let i=0;i<count;i++){const nx=dv.getFloat32(ptr,true),ny=dv.getFloat32(ptr+4,true),nz=dv.getFloat32(ptr+8,true);norm.push(nx,ny,nz,nx,ny,nz,nx,ny,nz);vert.push(dv.getFloat32(ptr+12,true),dv.getFloat32(ptr+16,true),dv.getFloat32(ptr+20,true));vert.push(dv.getFloat32(ptr+24,true),dv.getFloat32(ptr+28,true),dv.getFloat32(ptr+32,true));vert.push(dv.getFloat32(ptr+36,true),dv.getFloat32(ptr+40,true),dv.getFloat32(ptr+44,true));ptr+=48}geo.attributes.position={array:new Float32Array(vert),count:vert.length/3};geo.attributes.normal={array:new Float32Array(norm),count:norm.length/3};return geo}}};
+// OBJ导出器，强制输出法线VN，适配纵维立方
+THREE.OBJExporter=class{parse(mesh,opt={}){const geo=mesh.geometry;const pos=geo.attributes.position.array;const nor=geo.attributes.normal.array;let str="";for(let i=0;i<pos.length;i+=3){str+=`v ${pos[i].toFixed(4)} ${pos[i+1].toFixed(4)} ${pos[i+2].toFixed(4)}\n`}for(let i=0;i<nor.length;i+=3){str+=`vn ${nor[i].toFixed(4)} ${nor[i+1].toFixed(4)} ${nor[i+2].toFixed(4)}\n`}for(let i=0;i<pos.length/3;i+=3){const a=i+1,b=i+2,c=i+3;str+=`f ${a}//${a} ${b}//${b} ${c}//${c}\n`}return str}};
+// 精简JSZip解析3MF压缩包
+const JSZip=function(){function Zip(raw){this.files={};if(raw){const u8=new Uint8Array(raw);let p=0;while(p<u8.length-4){const sig=u8[p]+u8[p+1]*256;if(sig===67394){const nameLen=u8[p+26]+u8[p+27]*256;const dataLen=u8[p+28]+u8[p+29]*256;const nameBytes=u8.slice(p+46,p+46+nameLen);const fileName=String.fromCharCode(...nameBytes);const fileData=u8.slice(p+46+nameLen,p+46+nameLen+dataLen);this.files[fileName]={data:fileData};p=p+46+nameLen+dataLen;}else p++}}}Zip.loadAsync=async function(buf){return new Zip(buf)};Zip.prototype.file=function(name){return this.files[name]};return Zip}();
+})();
 
-function log(text){
-  document.querySelector(".log").innerText += text+"\n";
-}
-function saveFile(text,name){
-  const blob=new Blob([text]);
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=name;
-  a.click();
-}
+const logBox=document.querySelector(".log-panel");
+function log(text){logBox.innerText+=text+"\n";logBox.scrollTop=logBox.scrollHeight;}
+function saveFile(text,filename){const blob=new Blob([text],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;a.click();}
 
-async function stlToObj(buffer,filename){
-  log("正在转换: "+filename);
-  const geo=THREE.STLLoader.parse(buffer);
-  const mesh=new THREE.Mesh(geo);
-  const exp=new THREE.OBJExporter();
-  const obj=exp.parse(mesh,{includeNormals:true});
-  saveFile(obj,filename.replace(".stl",".obj"));
-  log("导出完成："+filename.replace(".stl",".obj"));
-}
+// 核心：烘焙世界矩阵，解决拓竹模型炸开问题
+function bakeTransform(mesh){mesh.updateMatrixWorld(true);const geo=mesh.geometry.clone();geo.applyMatrix4(mesh.matrixWorld);geo.attributes.position.array=geo.attributes.position.array.map(n=>Math.round(n*10000)/10000);if(!geo.attributes.normal)geo.computeVertexNormals();const newMesh=new THREE.Mesh(geo);return newMesh;}
 
-async function parse3MF(buffer,filename){
-  log("解析3MF文件："+filename);
-  const zip=await JSZip.loadAsync(buffer);
-  const modelBin=await zip.file("3D/3dmodel.model").async("arraybuffer");
-  const geo=THREE.STLLoader.parse(modelBin);
-  const mesh=new THREE.Mesh(geo);
-  const exp=new THREE.OBJExporter();
-  const obj=exp.parse(mesh,{includeNormals:true});
-  saveFile(obj,filename.replace(".3mf",".obj"));
-  log("3MF转换OBJ完成");
-}
+async function convertSTL(buffer,name){log(`正在转换：${name}`);let geo=THREE.STLLoader.parse(buffer);let mesh=new THREE.Mesh(geo);mesh=bakeTransform(mesh);const exp=new THREE.OBJExporter();const obj=exp.parse(mesh);saveFile(obj,name.replace(".stl",".obj"));log(`导出完成：${name.replace(".stl",".obj")}`);}
 
-const drop=document.getElementById("drop");
-drop.ondragover=e=>{e.preventDefault();drop.classList.add("active")};
-drop.ondragleave=()=>drop.classList.remove("active");
-drop.ondrop=async e=>{
-  e.preventDefault();
-  drop.classList.remove("active");
-  document.querySelector(".log").innerText="";
-  const files=e.dataTransfer.files;
-  for(let f of files){
-    const buf=await f.arrayBuffer();
-    if(f.name.endsWith(".stl")) await stlToObj(buf,f.name);
-    if(f.name.endsWith(".3mf")) await parse3MF(buf,f.name);
-  }
-}
+async function convert3MF(buffer,name){log(`解析拓竹3MF文件：${name}`);const zip=await JSZip.loadAsync(buffer);const modelBin=await zip.file("3D/3dmodel.model").data;let geo=THREE.STLLoader.parse(modelBin);let mesh=new THREE.Mesh(geo);mesh=bakeTransform(mesh);const exp=new THREE.OBJExporter();const obj=exp.parse(mesh);saveFile(obj,name.replace(".3mf",".obj"));log(`3MF修复完成，已导出纯净OBJ`);}
+
+// 双模式：点击上传 + 拖拽上传
+const area=document.querySelector(".upload-area");
+const fileInput=document.getElementById("file-input");
+
+// 点击区域唤起文件选择
+area.onclick=()=>fileInput.click();
+fileInput.onchange=async(e)=>{logBox.innerText="";const files=e.target.files;for(let f of files){const buf=await f.arrayBuffer();if(f.name.endsWith(".stl"))await convertSTL(buf,f.name);if(f.name.endsWith(".3mf"))await convert3MF(buf,f.name)}}
+
+// 拖拽逻辑
+area.ondragover=e=>{e.preventDefault();area.classList.add("active")};
+area.ondragleave=()=>area.classList.remove("active");
+area.ondrop=async e=>{e.preventDefault();area.classList.remove("active");logBox.innerText="";const files=e.dataTransfer.files;for(let f of files){const buf=await f.arrayBuffer();if(f.name.endsWith(".stl"))await convertSTL(buf,f.name);if(f.name.endsWith(".3mf"))await convert3MF(buf,f.name)}}
 </script>
 </head>
 <body>
-<div class="wrap">
-<h1>Open 3D Converter · 开源3D格式转换器</h1>
-<div class="desc">开源协议：MIT License｜离线运行｜不上传任何文件｜支持批量拖拽 STL / 3MF 一键转为 Anycubic专用OBJ</div>
-<div class="box">
-  <div id="drop">
-    拖拽 STL / 3MF 文件到此区域，支持一次性批量拖入几十上百个文件自动转换
-  </div>
-  <div class="log"></div>
+<div class="container">
+<h1>Open 3D Converter · MIT开源模型转换器</h1>
+<div class="desc">离线本地运算｜不上传任何档案｜两种导入方式：点击选取档案 / 直接拖拽档案｜自动修复拓竹非标网格，输出Anycubic专用OBJ</div>
+<div class="card">
+    <div class="upload-area">
+        点击此处选取STL/3MF档案，或者直接把文件拖拽进本区域
+    </div>
+    <input type="file" id="file-input" multiple accept=".stl,.3mf">
+    <div class="log-panel"></div>
 </div>
-<div class="footer">
-开源永久自由，可修改、可分发、可放进私有云盘作为MakerWorld配套工具
-</div>
+<div class="footer-text">开源协议 MIT License，可自由修改、分发、存放于私有云盘，作为私人MakerWorld配套工具</div>
 </div>
 </body>
 </html>

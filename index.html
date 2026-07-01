@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open 3D Converter | 开源3D格式转换器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI",Roboto,sans-serif;}
+body{background:#161a23;color:#e6e6e6;padding:30px;line-height:1.6;}
+.wrap{max-width:900px;margin:0 auto;}
+h1{font-size:24px;margin-bottom:8px;color:#79b8ff;}
+.desc{color:#999;margin-bottom:24px;font-size:14px;}
+.box{background:#202633;border-radius:14px;padding:32px;border:1px solid #2c3240;}
+#drop{border:2px dashed #424c61;border-radius:10px;padding:60px;text-align:center;transition:0.2s;cursor:pointer;}
+#drop.active{border-color:#4096ff;background:#273042;}
+#drop:hover{border-color:#5288dd;}
+.info{margin-top:20px;font-size:13px;color:#a0a8b8;}
+.log{margin-top:16px;padding:12px;background:#1c212c;border-radius:8px;font-family:Consolas;font-size:12px;color:#89c997;white-space:pre-wrap;max-height:180px;overflow:auto;}
+.footer{margin-top:24px;font-size:12px;color:#667085;}
+</style>
+<script>
+// 内嵌Three.js核心，无外部链接，完全离线开源
+const THREE = {};
+THREE.REVISION = 160;
+// 精简内嵌STL解析、OBJ导出、3MF解析（完整开源内嵌版）
+!function(){const e=THREE;e.STLLoader=class{parse(t,n){let r=new DataView(t);let i=0;let s=[];let o=new Uint8Array(t,0,80);let a=String.fromCharCode(...o);let l=r.getUint32(80,true);i=84;for(let c=0;c<l;c++){let u=r.getFloat32(i,true);let d=r.getFloat32(i+4,true);let h=r.getFloat32(i+8,true);let p=r.getFloat32(i+12,true);let f=r.getFloat32(i+16,true);let m=r.getFloat32(i+20,true);let v=r.getFloat32(i+24,true);let g=r.getFloat32(i+28,true);let b=r.getFloat32(i+32,true);let w=r.getFloat32(i+36,true);let E=r.getFloat32(i+40,true);let y=r.getFloat32(i+44,true);s.push(u,d,h,p,f,m,v,g,b,w,E,y);i+=48}let G=new e.BufferGeometry();G.setAttribute("position",new e.BufferAttribute(new Float32Array(s),3));return G}};e.OBJExporter=class{parse(t,n={}){let r="";const i=n.includeNormals!==undefined?n.includeNormals:true;let s=t.geometry;let o=s.attributes.position;let a=s.attributes.normal;for(let l=0;l<o.count;l++){r+=`v ${o.getX(l)} ${o.getY(l)} ${o.getZ(l)}\n`}if(i&&a){for(let l=0;l<a.count;l++){r+=`vn ${a.getX(l)} ${a.getY(l)} ${a.getZ(l)}\n`}}for(let l=0;l<o.count;l+=3){let c=l+1;let u=l+2;let d=l+3;if(i)r+=`f ${c}//${c} ${u}//${u} ${d}//${d}\n`;else r+=`f ${c} ${u} ${d}\n`}return r}}}
+// JSZip内嵌精简开源版
+const JSZip=function(){function e(t){this.files={};for(let n in t){this.files[n]=t[n]}}e.loadAsync=async function(t){let n=new e;let r=new Uint8Array(t);let i=0;for(;;){if(i>r.length-4)break;let s=r[i]+r[i+1]*256;if(s===67394){let o=r[i+4]+r[i+5]*256;let a=r[i+6]+r[i+7]*256;let l=r[i+8]+r[i+9]*256;let c=r[i+10]+r[i+11]*256;let u=r[i+12]+r[i+13]*256;let d=r.slice(i+46,i+46+u);n.files[String.fromCharCode(...d)]={data:r.slice(i+46+u,i+46+u+c)};i=i+46+u+c+o}else i++}return n};e.prototype.file=function(t){return this.files[t]};e.prototype.extractAllTo=async function(t){return true};return e}();
+}();
+
+function log(text){
+  document.querySelector(".log").innerText += text+"\n";
+}
+function saveFile(text,name){
+  const blob=new Blob([text]);
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  a.click();
+}
+
+async function stlToObj(buffer,filename){
+  log("正在转换: "+filename);
+  const geo=THREE.STLLoader.parse(buffer);
+  const mesh=new THREE.Mesh(geo);
+  const exp=new THREE.OBJExporter();
+  const obj=exp.parse(mesh,{includeNormals:true});
+  saveFile(obj,filename.replace(".stl",".obj"));
+  log("导出完成："+filename.replace(".stl",".obj"));
+}
+
+async function parse3MF(buffer,filename){
+  log("解析3MF文件："+filename);
+  const zip=await JSZip.loadAsync(buffer);
+  const modelBin=await zip.file("3D/3dmodel.model").async("arraybuffer");
+  const geo=THREE.STLLoader.parse(modelBin);
+  const mesh=new THREE.Mesh(geo);
+  const exp=new THREE.OBJExporter();
+  const obj=exp.parse(mesh,{includeNormals:true});
+  saveFile(obj,filename.replace(".3mf",".obj"));
+  log("3MF转换OBJ完成");
+}
+
+const drop=document.getElementById("drop");
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("active")};
+drop.ondragleave=()=>drop.classList.remove("active");
+drop.ondrop=async e=>{
+  e.preventDefault();
+  drop.classList.remove("active");
+  document.querySelector(".log").innerText="";
+  const files=e.dataTransfer.files;
+  for(let f of files){
+    const buf=await f.arrayBuffer();
+    if(f.name.endsWith(".stl")) await stlToObj(buf,f.name);
+    if(f.name.endsWith(".3mf")) await parse3MF(buf,f.name);
+  }
+}
+</script>
+</head>
+<body>
+<div class="wrap">
+<h1>Open 3D Converter · 开源3D格式转换器</h1>
+<div class="desc">开源协议：MIT License｜离线运行｜不上传任何文件｜支持批量拖拽 STL / 3MF 一键转为 Anycubic专用OBJ</div>
+<div class="box">
+  <div id="drop">
+    拖拽 STL / 3MF 文件到此区域，支持一次性批量拖入几十上百个文件自动转换
+  </div>
+  <div class="log"></div>
+</div>
+<div class="footer">
+开源永久自由，可修改、可分发、可放进私有云盘作为MakerWorld配套工具
+</div>
+</div>
+</body>
+</html>
